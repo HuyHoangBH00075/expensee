@@ -62,3 +62,5 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.rawQuery(query, new String[]{emailText});
     }
 }
+
+

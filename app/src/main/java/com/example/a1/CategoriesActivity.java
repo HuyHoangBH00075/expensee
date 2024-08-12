@@ -5,18 +5,11 @@ import android.os.Bundle;
 import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
 
-public class Home extends AppCompatActivity {
+public class CategoriesActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_categories); // Đảm bảo bạn có layout này
-    }
-
-    public void openProfileActivity(View view) {
-        String userEmail = getIntent().getStringExtra("USER_EMAIL");
-        Intent intent = new Intent(this, Profile.class);
-        intent.putExtra("USER_EMAIL",userEmail);
-        startActivity(intent);
     }
 
     public void openFoodActivity(View view) {
