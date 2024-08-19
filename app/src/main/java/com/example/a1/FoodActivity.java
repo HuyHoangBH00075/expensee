@@ -1,6 +1,7 @@
 package com.example.a1;
 
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,7 +9,9 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.appcompat.app.AlertDialog;
+import java.util.Locale;
+
+
 import androidx.appcompat.app.AppCompatActivity;
 
 public class FoodActivity extends AppCompatActivity {
@@ -16,37 +19,66 @@ public class FoodActivity extends AppCompatActivity {
     private LinearLayout expensesListLayout;
     private static final int ADD_EXPENSE_REQUEST_CODE = 1;
     private static final int EDIT_EXPENSE_REQUEST_CODE = 2;
+    private DatabaseHelper dbHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_food);
 
-        // Lấy reference đến LinearLayout
-        expensesListLayout = findViewById(R.id.expensesListLayout);
+        // Initialize the DatabaseHelper
+        dbHelper = new DatabaseHelper(this);
 
-        // Xóa tất cả các mục chi tiêu hiện có
+        // Reference to the expenses list layout
+        expensesListLayout = findViewById(R.id.expensesListLayout);
         expensesListLayout.removeAllViews();
 
-        Button addExpenseButton = findViewById(R.id.addExpenseButton);
+        // Load and display expenses from the database
+        loadExpenses();
 
+        // Set up the Add Expense button
+        Button addExpenseButton = findViewById(R.id.addExpenseButton);
         addExpenseButton.setOnClickListener(v -> {
             Intent intent = new Intent(FoodActivity.this, AddExpenseActivity.class);
             startActivityForResult(intent, ADD_EXPENSE_REQUEST_CODE);
         });
 
-        // Lấy reference đến ImageView backButton
+        // Set up the Back button
         ImageView backButton = findViewById(R.id.backButton);
-
-        // Thiết lập sự kiện nhấn vào nút mũi tên (backButton)
         backButton.setOnClickListener(v -> {
-            // Quay lại CategoriesActivity
             Intent intent = new Intent(FoodActivity.this, CategoriesActivity.class);
             startActivity(intent);
-            finish(); // Optional: Đóng FoodActivity để không thể quay lại bằng nút back
+            finish();
         });
     }
 
+    // Method to load expenses from the database and add them to the layout
+    private void loadExpenses() {
+        Cursor cursor = dbHelper.getReadableDatabase().query("expenses", null, null, null, null, null, null);
+        if (cursor.moveToFirst()) {
+            do {
+                int titleIndex = cursor.getColumnIndex("title");
+                int amountIndex = cursor.getColumnIndex("amount");
+                int dateIndex = cursor.getColumnIndex("date");
+
+                // Handle possible -1 return from getColumnIndex
+                if (titleIndex != -1 && amountIndex != -1 && dateIndex != -1) {
+                    String title = cursor.getString(titleIndex);
+                    double amount = cursor.getDouble(amountIndex);
+                    String date = cursor.getString(dateIndex);
+
+                    addExpenseItem(title, String.format(Locale.US, "-$%.2f", amount), date, R.drawable.food);
+                } else {
+                    // Handle the error if any column index is -1
+                    throw new IllegalStateException("One of the columns (title, amount, date) does not exist in the cursor.");
+                }
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+    }
+
+
+    // Method to handle the result from AddExpenseActivity
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -54,28 +86,22 @@ public class FoodActivity extends AppCompatActivity {
             String expenseTitle = data.getStringExtra("expense_title");
             String expenseAmount = data.getStringExtra("expense_amount");
             String expenseDate = data.getStringExtra("expense_date");
-            int expenseImageResId = data.getIntExtra("expense_image_res_id", R.drawable.food); // Default image
 
             if (requestCode == ADD_EXPENSE_REQUEST_CODE) {
-                // Thêm mục chi tiêu mới
-                addExpenseItem(expenseTitle, expenseAmount, expenseDate, expenseImageResId);
-            } else if (requestCode == EDIT_EXPENSE_REQUEST_CODE) {
-                // Cập nhật mục chi tiêu hiện có
-                int position = data.getIntExtra("position", -1);
-                if (position != -1) {
-                    updateExpenseItem(position, expenseTitle, expenseAmount, expenseDate, expenseImageResId);
-                }
+                // Add the new expense item to the list
+                addExpenseItem(expenseTitle, expenseAmount, expenseDate, R.drawable.food);
             }
         }
     }
 
+    // Method to dynamically add an expense item to the layout
     private void addExpenseItem(String title, String amount, String date, int imageResId) {
         LayoutInflater inflater = LayoutInflater.from(this);
 
-        // Inflate layout cho mục chi tiêu mới từ XML
+        // Inflate the expense item layout
         View expenseItemView = inflater.inflate(R.layout.expense_item, expensesListLayout, false);
 
-        // Gán các giá trị cho TextViews và ImageView trong mục chi tiêu
+        // Set the data for the expense item
         TextView expenseTitleTextView = expenseItemView.findViewById(R.id.expense_title);
         TextView expenseAmountTextView = expenseItemView.findViewById(R.id.expense_amount);
         TextView expenseDateTextView = expenseItemView.findViewById(R.id.expense_date);
@@ -86,46 +112,32 @@ public class FoodActivity extends AppCompatActivity {
         expenseDateTextView.setText(date);
         expenseImageView.setImageResource(imageResId);
 
-        // Thêm mục chi tiêu mới vào danh sách
+        // Add the expense item to the expenses list layout
         expensesListLayout.addView(expenseItemView);
 
-        // Thiết lập sự kiện nhấn vào mục chi tiêu
+        // Set up the click event for the expense item to allow editing or deleting
         expenseItemView.setOnClickListener(v -> showEditDeleteDialog(expenseItemView, title, amount, date, imageResId, expensesListLayout.indexOfChild(expenseItemView)));
     }
 
-    private void updateExpenseItem(int position, String title, String amount, String date, int imageResId) {
-        View expenseItemView = expensesListLayout.getChildAt(position);
-
-        if (expenseItemView != null) {
-            TextView expenseTitleTextView = expenseItemView.findViewById(R.id.expense_title);
-            TextView expenseAmountTextView = expenseItemView.findViewById(R.id.expense_amount);
-            TextView expenseDateTextView = expenseItemView.findViewById(R.id.expense_date);
-            ImageView expenseImageView = expenseItemView.findViewById(R.id.expense_image);
-
-            expenseTitleTextView.setText(title);
-            expenseAmountTextView.setText(amount);
-            expenseDateTextView.setText(date);
-            expenseImageView.setImageResource(imageResId);
-        }
-    }
-
+    // Method to show a dialog for editing or deleting an expense item
     private void showEditDeleteDialog(View expenseItemView, String title, String amount, String date, int imageResId, int position) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(FoodActivity.this);
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(FoodActivity.this);
         builder.setTitle("Chỉnh sửa hoặc Xóa");
 
         builder.setItems(new CharSequence[]{"Chỉnh sửa", "Xóa"}, (dialog, which) -> {
             switch (which) {
-                case 0: // Chỉnh sửa
+                case 0: // Edit
                     Intent editIntent = new Intent(FoodActivity.this, AddExpenseActivity.class);
                     editIntent.putExtra("expense_title", title);
                     editIntent.putExtra("expense_amount", amount);
                     editIntent.putExtra("expense_date", date);
                     editIntent.putExtra("expense_image_res_id", imageResId);
-                    editIntent.putExtra("position", position); // Truyền vị trí để chỉnh sửa
+                    editIntent.putExtra("position", position); // Pass the position for editing
                     startActivityForResult(editIntent, EDIT_EXPENSE_REQUEST_CODE);
                     break;
-                case 1: // Xóa
+                case 1: // Delete
                     expensesListLayout.removeView(expenseItemView);
+                    // Optionally: Remove the item from the database
                     break;
             }
         });

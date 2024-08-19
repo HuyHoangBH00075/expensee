@@ -28,6 +28,7 @@ public class AddExpenseActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_expense);
+        DatabaseHelper dbHelper = new DatabaseHelper(this);
 
         etExpenseTitle = findViewById(R.id.et_expense_title);
         etAmount = findViewById(R.id.et_amount);
@@ -76,14 +77,18 @@ public class AddExpenseActivity extends AppCompatActivity {
 
         // Thiết lập sự kiện cho nút lưu
         btnSave.setOnClickListener(v -> {
+            String expenseTitle = etExpenseTitle.getText().toString();
+            double expenseAmount = Double.parseDouble(etAmount.getText().toString());
+            String expenseDate = tvDate.getText().toString();
+
+            // Insert the data into the database
+            dbHelper.addExpense(expenseDate, expenseAmount, expenseTitle, etMessage.getText().toString());
+
+            // Return to the FoodActivity with the data
             Intent resultIntent = new Intent();
-            resultIntent.putExtra("expense_title", etExpenseTitle.getText().toString());
-            resultIntent.putExtra("expense_amount", etAmount.getText().toString());
-            resultIntent.putExtra("expense_date", tvDate.getText().toString());
-            resultIntent.putExtra("expense_image_res_id", R.drawable.food); // Đặt giá trị hình ảnh ở đây
-            if (isEditing) {
-                resultIntent.putExtra("position", intent.getIntExtra("position", -1)); // Trả về vị trí nếu chỉnh sửa
-            }
+            resultIntent.putExtra("expense_title", expenseTitle);
+            resultIntent.putExtra("expense_amount", String.format(Locale.US, "%.2f", expenseAmount));
+            resultIntent.putExtra("expense_date", expenseDate);
             setResult(RESULT_OK, resultIntent);
             finish();
         });
